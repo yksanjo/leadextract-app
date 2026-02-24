@@ -1,24 +1,37 @@
 const PROJECT = "leadextract-app";
 const DOMAIN = "application";
+const GOAL = "core runtime signals to support reliable product operations";
+
+import { classifyScore, computeScore } from "./scoring.js";
 
 export function assess(signal) {
-  const text = String(signal || "").toLowerCase();
-  let score = 0.1;
-  if (["critical", "breach", "outage", "failure", "incident"].some((k) => text.includes(k))) score += 0.6;
-  if (["warning", "anomaly", "retry", "latency"].some((k) => text.includes(k))) score += 0.2;
-  if (score > 1) score = 1;
-  const status = score >= 0.7 ? "high" : score >= 0.4 ? "medium" : "low";
+  const { score, reasons } = computeScore(signal);
+  const status = classifyScore(score);
+  const recommendations = status === "critical"
+    ? ["page-oncall", "open-incident", "contain-impact"]
+    : status === "high"
+      ? ["create-ticket", "assign-owner", "increase-observability"]
+      : status === "medium"
+        ? ["queue-review", "collect-context"]
+        : ["record-signal"];
   return {
     project: PROJECT,
     domain: DOMAIN,
+    goal: GOAL,
     score,
     status,
+    reasons,
+    recommendations,
     reason: "Context-aware baseline model for core runtime signals to support reliable product operations.",
     timestamp: new Date().toISOString(),
   };
 }
 
+export function summarize(signal) {
+  const result = assess(signal);
+  return `${result.project} [${result.domain}] status=${result.status} score=${result.score.toFixed(2)}`;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const result = assess("baseline health check");
-  console.log(`${result.project}:${result.domain}:${result.status}:${result.score}`);
+  console.log(summarize("baseline health check with warning latency"));
 }
